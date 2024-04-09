@@ -1,4 +1,5 @@
 # Stages Plugin
+
 > API stages plugin for the Screwdriver API
 
 ## Usage
@@ -12,22 +13,26 @@ const stagesPlugin = require('./');
 
 server.connection({ port: 3000 });
 
-server.register({
-    register: stagesPlugin,
-    options: {}
-}, () => {
-    server.start((err) => {
-        if (err) {
-            throw err;
-        }
-        console.log('Server running at:', server.info.uri);
-    });
-});
+server.register(
+    {
+        register: stagesPlugin,
+        options: {}
+    },
+    () => {
+        server.start(err => {
+            if (err) {
+                throw err;
+            }
+            console.log('Server running at:', server.info.uri);
+        });
+    }
+);
 ```
 
 ### Routes
 
 #### Get all stages
+
 `page`, `count`, `sort`, `sortBy`, `name`, `pipelineId`, and `jobIds` optional
 
 `GET /stages?page={pageNumber}&count={countNumber}&pipelineId={pipelineId}&name={stageName}`
