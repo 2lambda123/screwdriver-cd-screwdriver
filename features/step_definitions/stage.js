@@ -7,27 +7,20 @@ const sdapi = require('../support/sdapi');
 
 const TIMEOUT = 240 * 1000;
 
-Before(
-    {
-        tags: '@stage'
-    },
-    function hook() {
-        this.repoOrg = this.testOrg;
-        this.repoName = 'test-stage'; // functional-stage
-        this.buildId = null;
-        this.eventId = null;
-        this.pipelineId = null;
-        this.stageName = null;
-        this.stageId = null;
-        this.hubJobId = null;
-    }
-);
+Before({ tags: '@stage' }, function hook() {
+    this.repoOrg = this.testOrg;
+    this.repoName = 'test-stage'; // functional-stage
+    this.buildId = null;
+    this.eventId = null;
+    this.pipelineId = null;
+    this.stageName = null;
+    this.stageId = null;
+    this.hubJobId = null;
+});
 
 Given(
     /^an existing pipeline on branch "(stageFail1|stageFail2|stageSuccess1)" with stage "(simple_fail|incomplete_fail|simple_success)" with the workflow jobs:$/,
-    {
-        timeout: TIMEOUT
-    },
+    { timeout: TIMEOUT },
     async function step(branchName, stageName, table) {
         await this.ensurePipelineExists({
             repoName: this.repoName,
@@ -39,9 +32,7 @@ Given(
         const resp = await request({
             url: `${this.instance}/${this.namespace}/stages?name=${stageName}`,
             method: 'GET',
-            context: {
-                token: this.jwt
-            }
+            context: { token: this.jwt }
         });
 
         this.stageName = stageName;
@@ -51,21 +42,15 @@ Given(
 
 When(
     /^the "(hub)" job on branch "(stageFail1|stageFail2|stageSuccess1)" is started$/,
-    {
-        timeout: TIMEOUT
-    },
+    { timeout: TIMEOUT },
     function step(jobName, branchName) {
         const jobId = jobName ? Object.values(this.jobs).find(val => val.name === jobName).id : this.jobId;
 
         return request({
             url: `${this.instance}/${this.namespace}/builds`,
             method: 'POST',
-            json: {
-                jobId
-            },
-            context: {
-                token: this.jwt
-            }
+            json: { jobId },
+            context: { token: this.jwt }
         }).then(resp => {
             Assert.equal(resp.statusCode, 201);
 
@@ -97,32 +82,24 @@ Then(
     }
 );
 
-Then(
-    /^the "([^"]*)" job is started$/,
-    {
-        timeout: TIMEOUT
-    },
-    async function step(jobName) {
-        const build = await sdapi.searchForBuild({
-            instance: this.instance,
-            pipelineId: this.pipelineId,
-            desiredStatus: ['QUEUED', 'RUNNING', 'SUCCESS', 'FAILURE'],
-            jobName,
-            jwt: this.jwt
-        });
+Then(/^the "([^"]*)" job is started$/, { timeout: TIMEOUT }, async function step(jobName) {
+    const build = await sdapi.searchForBuild({
+        instance: this.instance,
+        pipelineId: this.pipelineId,
+        desiredStatus: ['QUEUED', 'RUNNING', 'SUCCESS', 'FAILURE'],
+        jobName,
+        jwt: this.jwt
+    });
 
-        this.buildId = build.id;
-        this.eventId = build.eventId;
+    this.buildId = build.id;
+    this.eventId = build.eventId;
 
-        Assert.ok(build);
-    }
-);
+    Assert.ok(build);
+});
 
 Then(
     /^the "([^"]*)" job on branch "([^"]*)" is not started/,
-    {
-        timeout: TIMEOUT
-    },
+    { timeout: TIMEOUT },
     async function step(jobName, branchName) {
         const build = await sdapi.findBuilds({
             instance: this.instance,

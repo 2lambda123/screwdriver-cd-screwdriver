@@ -1,4 +1,5 @@
 # Screwdriver API
+
 [![Version][npm-image]][npm-url] [![Pulls][docker-pulls]][docker-url] [![Stars][docker-stars]][docker-url] [![Build Status][status-image]][status-url] [![Open Issues][issues-image]][issues-url] [![Coverage][cov-image]][cov-url] [![Vulnerabilities][vul-image]][vul-url] ![License][license-image] [![Slack][slack-image]][slack-url] [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/4689/badge)](https://bestpractices.coreinfrastructure.org/projects/4689)
 
 > API for the Screwdriver CD service
@@ -7,12 +8,12 @@
 
 ## Table of Contents
 
-- [Background](#background)
-- [Installation and Usage](#installation-and-usage)
-- [Configuration](#configuration)
-- [Testing](#testing)
-- [Contribute](#contribute)
-- [License](#license)
+-   [Background](#background)
+-   [Installation and Usage](#installation-and-usage)
+-   [Configuration](#configuration)
+-   [Testing](#testing)
+-   [Contribute](#contribute)
+-   [License](#license)
 
 ## Background
 
@@ -26,43 +27,47 @@ For more information about Screwdriver, check out our [homepage](http://screwdri
 
 This API comes preloaded with 18 (eighteen) resources:
 
- - [auth](plugins/auth/README.md)
- - [banners](plugins/banners/README.md)
- - [builds](plugins/builds/README.md)
- - [buildClusters](plugins/buildClusters/README.md)
- - [collections](plugins/collections/README.md)
- - [commands](plugins/commands/README.md)
- - [coverage](plugins/coverage/README.md) - optional
- - [events](plugins/events/README.md)
- - [jobs](plugins/jobs/README.md)
- - [pipelines](plugins/pipelines/README.md)
- - [secrets](plugins/secrets/README.md)
- - [stages](plugins/stages/README.md)
- - [stageBuilds](plugins/stageBuilds/README.md)
- - [templates](plugins/templates/README.md)
- - [tokens](plugins/tokens/README.md)
- - [webhooks](plugins/webhooks/README.md)
- - [stats](plugins/stats.js)
- - [isAdmin](plugins/isAdmin.js)
+-   [auth](plugins/auth/README.md)
+-   [banners](plugins/banners/README.md)
+-   [builds](plugins/builds/README.md)
+-   [buildClusters](plugins/buildClusters/README.md)
+-   [collections](plugins/collections/README.md)
+-   [commands](plugins/commands/README.md)
+-   [coverage](plugins/coverage/README.md) - optional
+-   [events](plugins/events/README.md)
+-   [jobs](plugins/jobs/README.md)
+-   [pipelines](plugins/pipelines/README.md)
+-   [secrets](plugins/secrets/README.md)
+-   [stages](plugins/stages/README.md)
+-   [stageBuilds](plugins/stageBuilds/README.md)
+-   [templates](plugins/templates/README.md)
+-   [tokens](plugins/tokens/README.md)
+-   [webhooks](plugins/webhooks/README.md)
+-   [stats](plugins/stats.js)
+-   [isAdmin](plugins/isAdmin.js)
 
 Three (3) option for datastores:
- - Postgres, MySQL, and Sqlite (`sequelize`)
+
+-   Postgres, MySQL, and Sqlite (`sequelize`)
 
 Three (3) options for executor:
- - Kubernetes (`k8s`)
- - Docker (`docker`)
- - Nomad (`nomad`)
+
+-   Kubernetes (`k8s`)
+-   Docker (`docker`)
+-   Nomad (`nomad`)
 
 Three (3) options for SCM:
- - GitHub (`github`)
- - GitLab (`gitlab`)
- - Bitbucket (`bitbucket`)
+
+-   GitHub (`github`)
+-   GitLab (`gitlab`)
+-   Bitbucket (`bitbucket`)
 
 ### Prerequisites
+
 To use Screwdriver, you will need the following prerequisites:
 
-- Node v12.0.0 or higher
-- [Kubernetes][kubectl] or [Docker][docker]
+-   Node v12.0.0 or higher
+-   [Kubernetes][kubectl] or [Docker][docker]
 
 ### From Source
 
@@ -156,6 +161,7 @@ Fork `functional-*` repositories to your organization from [screwdriver-cd-test]
 #### With `.func_config`
 
 Add `.func_config` to the root of the Screwdriver API folder with your username, github token, access key, host, and organization for test:
+
 ```
 GIT_TOKEN=YOUR-GITHUB-TOKEN
 SD_API_TOKEN=YOUR-SD-API-TOKEN
@@ -183,11 +189,13 @@ $ export TEST_SCM_CONTEXT=YOUR-TEST-SCM-CONTEXT
 ```
 
 Then run the cucumber tests:
+
 ```bash
 npm run functional
 ```
 
 ## Contribute
+
 To start contributing to Screwdriver, have a look at our guidelines, as well as pointers on where to start making changes, in our [contributing guide](http://docs.screwdriver.cd/about/contributing).
 
 ## License

@@ -45,7 +45,13 @@ describe('Register Unit Test Case', () => {
         '../../plugins/validator',
         '../../plugins/processHooks'
     ];
-    const authPlugins = ['@hapi/bell', '@hapi/cookie', '@hapi/crumb', 'hapi-auth-bearer-token', 'hapi-auth-jwt2'];
+    const authPlugins = [
+        '@hapi/bell',
+        '@hapi/cookie',
+        '@hapi/crumb',
+        'hapi-auth-bearer-token',
+        'hapi-auth-jwt2'
+    ];
     const pluginLength = expectedPlugins.length + resourcePlugins.length + authPlugins.length; // for server.register of auth Plugins;
     const mocks = {};
     const config = {
@@ -59,9 +65,7 @@ describe('Register Unit Test Case', () => {
         serverMock = {
             register: sinon.stub(),
             on: sinon.stub(),
-            events: {
-                on: sinon.stub()
-            }
+            events: { on: sinon.stub() }
         };
 
         expectedPlugins.forEach(plugin => {
@@ -94,12 +98,7 @@ describe('Register Unit Test Case', () => {
         Assert.equal(serverMock.register.callCount, pluginLength);
 
         expectedPlugins.forEach(plugin => {
-            serverMock.register.calledWith({
-                plugin: mocks[plugin],
-                routes: {
-                    prefix: '/v4'
-                }
-            });
+            serverMock.register.calledWith({ plugin: mocks[plugin], routes: { prefix: '/v4' } });
         });
     });
 
@@ -112,12 +111,8 @@ describe('Register Unit Test Case', () => {
         resourcePlugins.forEach(plugin => {
             serverMock.register.calledWith({
                 plugin: mocks[plugin],
-                options: {
-                    ...(config[plugin.split('/')[3]] || {})
-                },
-                routes: {
-                    prefix: '/v4'
-                }
+                options: { ...(config[plugin.split('/')[3]] || {}) },
+                routes: { prefix: '/v4' }
             });
         });
     });
@@ -130,9 +125,7 @@ describe('Register Unit Test Case', () => {
 
         const pluginOptions = {
             '@hapi/crumb': {
-                cookieOptions: {
-                    isSecure: false
-                },
+                cookieOptions: { isSecure: false },
                 restful: true,
                 skip: function skip() {}
             }
@@ -141,23 +134,14 @@ describe('Register Unit Test Case', () => {
         authPlugins.forEach(plugin => {
             serverMock.register.calledWith({
                 plugin: mocks[plugin],
-                options: {
-                    ...(pluginOptions[plugin] || {})
-                }
+                options: { ...(pluginOptions[plugin] || {}) }
             });
         });
     });
 
     it('registered notifications plugins', async () => {
         const newConfig = {
-            notifications: {
-                email: {
-                    foo: 'abc'
-                },
-                slack: {
-                    baz: 'def'
-                }
-            }
+            notifications: { email: { foo: 'abc' }, slack: { baz: 'def' } }
         };
 
         const notificationPlugins = ['screwdriver-notifications-email', 'screwdriver-notifications-slack'];
@@ -180,15 +164,11 @@ describe('Register Unit Test Case', () => {
         const newConfig = {
             notifications: {
                 email: {
-                    config: {
-                        foo: 'abc'
-                    },
+                    config: { foo: 'abc' },
                     scopedPackage: '@module/screwdriver-notifications-email'
                 },
                 slack: {
-                    config: {
-                        baz: 'def'
-                    },
+                    config: { baz: 'def' },
                     scopedPackage: '@module/screwdriver-notifications-slack'
                 }
             }
@@ -221,11 +201,7 @@ describe('Register Unit Test Case', () => {
         rewiremock('../../plugins/coverage').with(mocks[coveragePlugin]);
 
         rewiremock.enable();
-        await main(serverMock, {
-            coverage: {
-                coveragePlugin: {}
-            }
-        });
+        await main(serverMock, { coverage: { coveragePlugin: {} } });
         rewiremock.disable();
 
         Assert.equal(serverMock.register.callCount, pluginLength + 1);
@@ -234,9 +210,7 @@ describe('Register Unit Test Case', () => {
             Assert.calledWith(serverMock.register, {
                 plugin: mocks[plugin],
                 options: {},
-                routes: {
-                    prefix: '/v4'
-                }
+                routes: { prefix: '/v4' }
             });
         });
     });
@@ -255,22 +229,14 @@ describe('Register Unit Test Case', () => {
 
     it('registers data for plugin when specified in the config object', async () => {
         rewiremock.enable();
-        await main(serverMock, {
-            auth: {
-                foo: 'bar'
-            }
-        });
+        await main(serverMock, { auth: { foo: 'bar' } });
         rewiremock.disable();
 
         Assert.equal(serverMock.register.callCount, pluginLength);
         Assert.calledWith(serverMock.register, {
             plugin: mocks['../../plugins/auth'],
-            options: {
-                foo: 'bar'
-            },
-            routes: {
-                prefix: '/v4'
-            }
+            options: { foo: 'bar' },
+            routes: { prefix: '/v4' }
         });
     });
 });

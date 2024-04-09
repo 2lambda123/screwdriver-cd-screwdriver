@@ -41,32 +41,20 @@ describe('stage plugin test', () => {
     let server;
 
     beforeEach(async () => {
-        stageFactoryMock = {
-            get: sinon.stub(),
-            list: sinon.stub()
-        };
-        stageBuildFactoryMock = {
-            list: sinon.stub()
-        };
+        stageFactoryMock = { get: sinon.stub(), list: sinon.stub() };
+        stageBuildFactoryMock = { list: sinon.stub() };
 
         /* eslint-disable global-require */
         plugin = require('../../plugins/stages');
         /* eslint-enable global-require */
-        server = new hapi.Server({
-            port: 1234
-        });
+        server = new hapi.Server({ port: 1234 });
         server.app = {
             stageFactory: stageFactoryMock,
             stageBuildFactory: stageBuildFactoryMock
         };
 
         server.auth.scheme('custom', () => ({
-            authenticate: (request, h) =>
-                h.authenticated({
-                    credentials: {
-                        scope: ['user']
-                    }
-                })
+            authenticate: (request, h) => h.authenticated({ credentials: { scope: ['user'] } })
         }));
         server.auth.strategy('token', 'custom');
 
@@ -101,13 +89,7 @@ describe('stage plugin test', () => {
 
         it('returns 200 and all stages', () => {
             stageFactoryMock.list
-                .withArgs({
-                    paginate: {
-                        page: 1,
-                        count: 3
-                    },
-                    sort: 'descending'
-                })
+                .withArgs({ paginate: { page: 1, count: 3 }, sort: 'descending' })
                 .resolves(getStageMocks(testStages));
 
             return server.inject(options).then(reply => {
@@ -119,12 +101,7 @@ describe('stage plugin test', () => {
         it('returns 200 and all stages with pipelineId', () => {
             options.url = '/stages?pipelineId=123';
             stageFactoryMock.list
-                .withArgs({
-                    params: {
-                        pipelineId: 123
-                    },
-                    sort: 'descending'
-                })
+                .withArgs({ params: { pipelineId: 123 }, sort: 'descending' })
                 .resolves(getStageMocks(testStages));
 
             return server.inject(options).then(reply => {
@@ -136,12 +113,7 @@ describe('stage plugin test', () => {
         it('returns 200 and all stages with matching jobIds', () => {
             options.url = '/stages?jobIds[]=1&jobIds[]=2&jobIds[]=3&';
             stageFactoryMock.list
-                .withArgs({
-                    params: {
-                        jobIds: [1, 2, 3]
-                    },
-                    sort: 'descending'
-                })
+                .withArgs({ params: { jobIds: [1, 2, 3] }, sort: 'descending' })
                 .resolves(getStageMocks(testStages));
 
             return server.inject(options).then(reply => {
@@ -173,10 +145,7 @@ describe('stage plugin test', () => {
         it('returns 200 and all stages when sortBy is set', () => {
             options.url = '/stages?sort=ascending&sortBy=name';
             stageFactoryMock.list
-                .withArgs({
-                    sort: 'ascending',
-                    sortBy: 'name'
-                })
+                .withArgs({ sort: 'ascending', sortBy: 'name' })
                 .resolves(getStageMocks(testStages));
 
             return server.inject(options).then(reply => {
@@ -189,13 +158,8 @@ describe('stage plugin test', () => {
             options.url = '/stages?page=1&count=3&name=deploy';
             stageFactoryMock.list
                 .withArgs({
-                    params: {
-                        name: 'deploy'
-                    },
-                    paginate: {
-                        page: 1,
-                        count: 3
-                    },
+                    params: { name: 'deploy' },
+                    paginate: { page: 1, count: 3 },
                     sort: 'descending'
                 })
                 .resolves(getStageMocks(testStages));
@@ -271,10 +235,7 @@ describe('stage plugin test', () => {
         let options;
 
         beforeEach(() => {
-            options = {
-                method: 'GET',
-                url: '/stages/1234/stageBuilds'
-            };
+            options = { method: 'GET', url: '/stages/1234/stageBuilds' };
         });
 
         it('returns 200 and stageBuilds when given the stage id', () => {
@@ -284,7 +245,10 @@ describe('stage plugin test', () => {
             return server.inject(options).then(reply => {
                 assert.deepEqual(reply.result, testStageBuilds);
                 assert.calledWith(stageFactoryMock.get, 1234);
-                assert.calledWith(stageBuildFactoryMock.list, { sort: 'descending', params: { stageId: 1234 } });
+                assert.calledWith(stageBuildFactoryMock.list, {
+                    sort: 'descending',
+                    params: { stageId: 1234 }
+                });
                 assert.equal(reply.statusCode, 200);
             });
         });
@@ -292,14 +256,8 @@ describe('stage plugin test', () => {
         it('returns 200 and stageBuilds when given the stage id with request query params', () => {
             const expectedStageBuildArgs = {
                 sort: 'descending',
-                params: {
-                    stageId: 1234,
-                    eventId: 220
-                },
-                paginate: {
-                    page: 1,
-                    count: 1
-                }
+                params: { stageId: 1234, eventId: 220 },
+                paginate: { page: 1, count: 1 }
             };
 
             options.url = '/stages/1234/stageBuilds?page=1&count=1&eventId=220';

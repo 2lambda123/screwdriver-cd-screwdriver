@@ -30,7 +30,9 @@ module.exports = () => ({
 
                 config.params = {
                     ...config.params,
-                    jobIds: Array.isArray(jobIds) ? jobIds.map(jobId => parseInt(jobId, 10)) : [parseInt(jobIds, 10)]
+                    jobIds: Array.isArray(jobIds)
+                        ? jobIds.map(jobId => parseInt(jobId, 10))
+                        : [parseInt(jobIds, 10)]
                 };
             }
 
