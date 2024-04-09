@@ -10,7 +10,7 @@ Current Screwdriver reacts and send user notifications based on single job's sta
 Pipeline1:
 
 [jobA] --> [jobB, jobC]
-       \              
+       \
         -> [jobD, jobE]
 ```
 
