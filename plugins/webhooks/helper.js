@@ -3,7 +3,7 @@
 const workflowParser = require('screwdriver-workflow-parser');
 const schema = require('screwdriver-data-schema');
 const logger = require('screwdriver-logger');
-const {getReadOnlyInfo} = require('../helper');
+const { getReadOnlyInfo } = require('../helper');
 
 const ANNOT_NS = 'screwdriver.cd';
 const ANNOT_CHAIN_PR = `${ANNOT_NS}/chainPR`;
@@ -19,18 +19,17 @@ const CHECKOUT_URL_SCHEMA_REGEXP = new RegExp(CHECKOUT_URL_SCHEMA);
  * @returns {Boolean} isFilteringEnabled
  */
 function isReleaseOrTagFilteringEnabled(action, workflowGraph) {
-  let isFilteringEnabled = true;
+    let isFilteringEnabled = true;
 
-  workflowGraph.edges.forEach(edge => {
-    const releaseOrTagRegExp =
-        action === 'release' ? /^~(release)$/ : /^~(tag)$/;
+    workflowGraph.edges.forEach(edge => {
+        const releaseOrTagRegExp = action === 'release' ? /^~(release)$/ : /^~(tag)$/;
 
-    if (edge.src.match(releaseOrTagRegExp)) {
-      isFilteringEnabled = false;
-    }
-  });
+        if (edge.src.match(releaseOrTagRegExp)) {
+            isFilteringEnabled = false;
+        }
+    });
 
-  return isFilteringEnabled;
+    return isFilteringEnabled;
 }
 /**
  * Determine "startFrom" with type, action and branches
@@ -46,33 +45,38 @@ function isReleaseOrTagFilteringEnabled(action, workflowGraph) {
  *     is enabled
  * @returns {String} startFrom
  */
-function determineStartFrom(action, type, targetBranch, pipelineBranch,
-                            releaseName, tagName, isReleaseOrTagFiltering) {
-  let startFrom;
+function determineStartFrom(
+    action,
+    type,
+    targetBranch,
+    pipelineBranch,
+    releaseName,
+    tagName,
+    isReleaseOrTagFiltering
+) {
+    let startFrom;
 
-  if (type && type === 'pr') {
-    startFrom = '~pr';
-  } else {
-    switch (action) {
-    case 'release':
-      return releaseName && isReleaseOrTagFiltering ? `~release:${releaseName}`
-                                                    : '~release';
-    case 'tag':
-      if (!tagName) {
-        logger.error('The ref of SCM Webhook is missing.');
+    if (type && type === 'pr') {
+        startFrom = '~pr';
+    } else {
+        switch (action) {
+            case 'release':
+                return releaseName && isReleaseOrTagFiltering ? `~release:${releaseName}` : '~release';
+            case 'tag':
+                if (!tagName) {
+                    logger.error('The ref of SCM Webhook is missing.');
 
-        return '';
-      }
+                    return '';
+                }
 
-      return isReleaseOrTagFiltering ? `~tag:${tagName}` : '~tag';
-    default:
-      startFrom = '~commit';
-      break;
+                return isReleaseOrTagFiltering ? `~tag:${tagName}` : '~tag';
+            default:
+                startFrom = '~commit';
+                break;
+        }
     }
-  }
 
-  return targetBranch !== pipelineBranch ? `${startFrom}:${targetBranch}`
-                                         : startFrom;
+    return targetBranch !== pipelineBranch ? `${startFrom}:${targetBranch}` : startFrom;
 }
 
 /**
@@ -86,42 +90,40 @@ function determineStartFrom(action, type, targetBranch, pipelineBranch,
  * @return {Promise}                        Updates the pipeline admins and
  *     throws an error if not an admin
  */
-async function updateAdmins(userFactory, username, scmContext, pipeline,
-                            pipelineFactory) {
-  const {readOnlyEnabled} =
-      getReadOnlyInfo({scm : pipelineFactory.scm, scmContext});
+async function updateAdmins(userFactory, username, scmContext, pipeline, pipelineFactory) {
+    const { readOnlyEnabled } = getReadOnlyInfo({ scm: pipelineFactory.scm, scmContext });
 
-  // Skip update admins if read-only pipeline
-  if (readOnlyEnabled) {
+    // Skip update admins if read-only pipeline
+    if (readOnlyEnabled) {
+        return Promise.resolve();
+    }
+
+    try {
+        const user = await userFactory.get({ username, scmContext });
+        const userPermissions = await user.getPermissions(pipeline.scmUri);
+        const newAdmins = pipeline.admins;
+
+        // Delete user from admin list if bad permissions
+        if (!userPermissions.push) {
+            delete newAdmins[username];
+            // This is needed to make admins dirty and update db
+            pipeline.admins = newAdmins;
+
+            return pipeline.update();
+        }
+        // Add user as admin if permissions good and does not already exist
+        if (!pipeline.admins[username]) {
+            newAdmins[username] = true;
+            // This is needed to make admins dirty and update db
+            pipeline.admins = newAdmins;
+
+            return pipeline.update();
+        }
+    } catch (err) {
+        logger.info(err.message);
+    }
+
     return Promise.resolve();
-  }
-
-  try {
-    const user = await userFactory.get({username, scmContext});
-    const userPermissions = await user.getPermissions(pipeline.scmUri);
-    const newAdmins = pipeline.admins;
-
-    // Delete user from admin list if bad permissions
-    if (!userPermissions.push) {
-      delete newAdmins[username];
-      // This is needed to make admins dirty and update db
-      pipeline.admins = newAdmins;
-
-      return pipeline.update();
-    }
-    // Add user as admin if permissions good and does not already exist
-    if (!pipeline.admins[username]) {
-      newAdmins[username] = true;
-      // This is needed to make admins dirty and update db
-      pipeline.admins = newAdmins;
-
-      return pipeline.update();
-    }
-  } catch (err) {
-    logger.info(err.message);
-  }
-
-  return Promise.resolve();
 }
 
 /**
@@ -133,11 +135,10 @@ async function updateAdmins(userFactory, username, scmContext, pipeline,
  * @param  {PipelineFactory}    config.pipelineFactory  PipelineFactory object
  * @return {Promise}
  */
-async function batchUpdateAdmins(
-    {userFactory, pipelines, username, scmContext, pipelineFactory}) {
-  await Promise.all(
-      pipelines.map(pipeline => updateAdmins(userFactory, username, scmContext,
-                                             pipeline, pipelineFactory)));
+async function batchUpdateAdmins({ userFactory, pipelines, username, scmContext, pipelineFactory }) {
+    await Promise.all(
+        pipelines.map(pipeline => updateAdmins(userFactory, username, scmContext, pipeline, pipelineFactory))
+    );
 }
 
 /**
@@ -149,21 +150,21 @@ async function batchUpdateAdmins(
  * @return {Boolean}                  Should the build be restricted
  */
 function isRestrictedPR(restriction, prSource) {
-  switch (restriction) {
-  case 'all':
-  case 'all-admin':
-    return true;
-  case 'branch':
-  case 'branch-admin':
-    return prSource === 'branch';
-  case 'fork':
-  case 'fork-admin':
-    return prSource === 'fork';
-  case 'none':
-  case 'none-admin':
-  default:
-    return false;
-  }
+    switch (restriction) {
+        case 'all':
+        case 'all-admin':
+            return true;
+        case 'branch':
+        case 'branch-admin':
+            return prSource === 'branch';
+        case 'fork':
+        case 'fork-admin':
+            return prSource === 'fork';
+        case 'none':
+        case 'none-admin':
+        default:
+            return false;
+    }
 }
 
 /**
@@ -176,26 +177,29 @@ function isRestrictedPR(restriction, prSource) {
  * @param  {String} config.prNum   Pull request number
  * @return {Promise}
  */
-function stopJob({job, prNum, action}) {
-  const stopRunningBuild = build => {
-    if (build.isDone()) {
-      return Promise.resolve();
-    }
+function stopJob({ job, prNum, action }) {
+    const stopRunningBuild = build => {
+        if (build.isDone()) {
+            return Promise.resolve();
+        }
 
-    const statusMessage =
-        action === 'Closed'
-            ? `Aborted because PR#${prNum} was closed`
-            : `Aborted because new commit was pushed to PR#${prNum}`;
+        const statusMessage =
+            action === 'Closed'
+                ? `Aborted because PR#${prNum} was closed`
+                : `Aborted because new commit was pushed to PR#${prNum}`;
 
-    build.status = 'ABORTED';
-    build.statusMessage = statusMessage;
+        build.status = 'ABORTED';
+        build.statusMessage = statusMessage;
 
-    return build.update();
-  };
+        return build.update();
+    };
 
-  return (job.getRunningBuilds()
-              // Stop running builds
-              .then(builds => Promise.all(builds.map(stopRunningBuild))));
+    return (
+        job
+            .getRunningBuilds()
+            // Stop running builds
+            .then(builds => Promise.all(builds.map(stopRunningBuild)))
+    );
 }
 
 /**
@@ -207,16 +211,15 @@ function stopJob({job, prNum, action}) {
  *     job
  */
 function hasTriggeredJob(pipeline, startFrom) {
-  try {
-    const nextJobs = workflowParser.getNextJobs(pipeline.workflowGraph,
-                                                {trigger : startFrom});
+    try {
+        const nextJobs = workflowParser.getNextJobs(pipeline.workflowGraph, { trigger: startFrom });
 
-    return nextJobs.length > 0;
-  } catch (err) {
-    logger.error(`Error finding triggered jobs for ${pipeline.id}: ${err}`);
+        return nextJobs.length > 0;
+    } catch (err) {
+        logger.error(`Error finding triggered jobs for ${pipeline.id}: ${err}`);
 
-    return false;
-  }
+        return false;
+    }
 }
 
 /**
@@ -226,16 +229,16 @@ function hasTriggeredJob(pipeline, startFrom) {
  * @return {Boolean}
  */
 function hasChangesUnderRootDir(pipeline, changedFiles) {
-  const splitUri = pipeline.scmUri.split(':');
-  const rootDir = splitUri.length > 3 ? splitUri[3] : '';
-  const changes = changedFiles || [];
+    const splitUri = pipeline.scmUri.split(':');
+    const rootDir = splitUri.length > 3 ? splitUri[3] : '';
+    const changes = changedFiles || [];
 
-  // Only check if rootDir is set
-  if (rootDir) {
-    return changes.some(file => file.startsWith(rootDir));
-  }
+    // Only check if rootDir is set
+    if (rootDir) {
+        return changes.some(file => file.startsWith(rootDir));
+    }
 
-  return true;
+    return true;
 }
 
 /**
@@ -247,10 +250,10 @@ function hasChangesUnderRootDir(pipeline, changedFiles) {
  * @return {Boolean}
  */
 function resolveChainPR(chainPR, pipeline) {
-  const defaultChainPR = typeof chainPR === 'undefined' ? false : chainPR;
-  const annotChainPR = pipeline.annotations[ANNOT_CHAIN_PR];
+    const defaultChainPR = typeof chainPR === 'undefined' ? false : chainPR;
+    const annotChainPR = pipeline.annotations[ANNOT_CHAIN_PR];
 
-  return typeof annotChainPR === 'undefined' ? defaultChainPR : annotChainPR;
+    return typeof annotChainPR === 'undefined' ? defaultChainPR : annotChainPR;
 }
 
 /**
@@ -261,26 +264,23 @@ function resolveChainPR(chainPR, pipeline) {
  * @param  {Boolean}      config.chainPR        Chain PR flag
  * @return {Object}
  */
-function getSkipMessageAndChainPR({pipeline, prSource, restrictPR, chainPR}) {
-  const defaultRestrictPR = restrictPR || 'none';
-  const result = {resolvedChainPR : resolveChainPR(chainPR, pipeline)};
-  let restriction;
+function getSkipMessageAndChainPR({ pipeline, prSource, restrictPR, chainPR }) {
+    const defaultRestrictPR = restrictPR || 'none';
+    const result = { resolvedChainPR: resolveChainPR(chainPR, pipeline) };
+    let restriction;
 
-  if ([ 'all-admin', 'none-admin', 'branch-admin', 'fork-admin' ].includes(
-          defaultRestrictPR)) {
-    restriction = defaultRestrictPR;
-  } else {
-    restriction = pipeline.annotations[ANNOT_RESTRICT_PR] || defaultRestrictPR;
-  }
+    if (['all-admin', 'none-admin', 'branch-admin', 'fork-admin'].includes(defaultRestrictPR)) {
+        restriction = defaultRestrictPR;
+    } else {
+        restriction = pipeline.annotations[ANNOT_RESTRICT_PR] || defaultRestrictPR;
+    }
 
-  // Check for restriction upfront
-  if (isRestrictedPR(restriction, prSource)) {
-    result.skipMessage =
-        `Skipping build since pipeline is configured to restrict ${
-            restriction} and PR is ${prSource}`;
-  }
+    // Check for restriction upfront
+    if (isRestrictedPR(restriction, prSource)) {
+        result.skipMessage = `Skipping build since pipeline is configured to restrict ${restriction} and PR is ${prSource}`;
+    }
 
-  return result;
+    return result;
 }
 
 /**
@@ -290,12 +290,11 @@ function getSkipMessageAndChainPR({pipeline, prSource, restrictPR, chainPR}) {
  * @return {String}
  */
 const uriTrimmer = uri => {
-  const uriToArray = uri.split(':');
+    const uriToArray = uri.split(':');
 
-  while (uriToArray.length > 2)
-    uriToArray.pop();
+    while (uriToArray.length > 2) uriToArray.pop();
 
-  return uriToArray.join(':');
+    return uriToArray.join(':');
 };
 
 /**
@@ -315,66 +314,70 @@ const uriTrimmer = uri => {
  * @returns {Promise}                           Promise that resolves into
  *     triggered pipelines
  */
-async function triggeredPipelines(pipelineFactory, scmConfig, branch, type,
-                                  action, changedFiles, releaseName, tagName) {
-  const {scmUri} = scmConfig;
-  const splitUri = scmUri.split(':');
-  const scmBranch = `${splitUri[0]}:${splitUri[1]}:${splitUri[2]}`;
-  const scmRepoId = `${splitUri[0]}:${splitUri[1]}`;
-  const listConfig = {
-    search : {field : 'scmUri', keyword : `${scmRepoId}:%`},
-    params : {state : 'ACTIVE'}
-  };
-  const externalRepoSearchConfig = {
-    search :
-        {field : 'subscribedScmUrlsWithActions', keyword : `%${scmRepoId}:%`},
-    params : {state : 'ACTIVE'}
-  };
+async function triggeredPipelines(
+    pipelineFactory,
+    scmConfig,
+    branch,
+    type,
+    action,
+    changedFiles,
+    releaseName,
+    tagName
+) {
+    const { scmUri } = scmConfig;
+    const splitUri = scmUri.split(':');
+    const scmBranch = `${splitUri[0]}:${splitUri[1]}:${splitUri[2]}`;
+    const scmRepoId = `${splitUri[0]}:${splitUri[1]}`;
+    const listConfig = {
+        search: { field: 'scmUri', keyword: `${scmRepoId}:%` },
+        params: { state: 'ACTIVE' }
+    };
+    const externalRepoSearchConfig = {
+        search: { field: 'subscribedScmUrlsWithActions', keyword: `%${scmRepoId}:%` },
+        params: { state: 'ACTIVE' }
+    };
 
-  const pipelines = await pipelineFactory.list(listConfig);
+    const pipelines = await pipelineFactory.list(listConfig);
 
-  const pipelinesWithSubscribedRepos =
-      await pipelineFactory.list(externalRepoSearchConfig);
+    const pipelinesWithSubscribedRepos = await pipelineFactory.list(externalRepoSearchConfig);
 
-  let pipelinesOnCommitBranch = [];
-  let pipelinesOnOtherBranch = [];
+    let pipelinesOnCommitBranch = [];
+    let pipelinesOnOtherBranch = [];
 
-  pipelines.forEach(p => {
-    // This uri expects 'scmUriDomain:repoId:branchName:rootDir'. To Compare,
-    // rootDir is ignored.
-    const splitScmUri = p.scmUri.split(':');
-    const pipelineScmBranch =
-        `${splitScmUri[0]}:${splitScmUri[1]}:${splitScmUri[2]}`;
+    pipelines.forEach(p => {
+        // This uri expects 'scmUriDomain:repoId:branchName:rootDir'. To Compare,
+        // rootDir is ignored.
+        const splitScmUri = p.scmUri.split(':');
+        const pipelineScmBranch = `${splitScmUri[0]}:${splitScmUri[1]}:${splitScmUri[2]}`;
 
-    if (pipelineScmBranch === scmBranch) {
-      pipelinesOnCommitBranch.push(p);
-    } else {
-      pipelinesOnOtherBranch.push(p);
-    }
-  });
+        if (pipelineScmBranch === scmBranch) {
+            pipelinesOnCommitBranch.push(p);
+        } else {
+            pipelinesOnOtherBranch.push(p);
+        }
+    });
 
-  // Build runs regardless of changedFiles when release/tag trigger
-  pipelinesOnCommitBranch = pipelinesOnCommitBranch.filter(
-      p => ['release', 'tag'].includes(action) ||
-           hasChangesUnderRootDir(p, changedFiles));
+    // Build runs regardless of changedFiles when release/tag trigger
+    pipelinesOnCommitBranch = pipelinesOnCommitBranch.filter(
+        p => ['release', 'tag'].includes(action) || hasChangesUnderRootDir(p, changedFiles)
+    );
 
-  pipelinesOnOtherBranch = pipelinesOnOtherBranch.filter(p => {
-    let isReleaseOrTagFiltering = '';
+    pipelinesOnOtherBranch = pipelinesOnOtherBranch.filter(p => {
+        let isReleaseOrTagFiltering = '';
 
-    if (action === 'release' || action === 'tag') {
-      isReleaseOrTagFiltering =
-          isReleaseOrTagFilteringEnabled(action, p.workflowGraph);
-    }
+        if (action === 'release' || action === 'tag') {
+            isReleaseOrTagFiltering = isReleaseOrTagFilteringEnabled(action, p.workflowGraph);
+        }
 
-    return hasTriggeredJob(p, determineStartFrom(action, type, branch, null,
-                                                 releaseName, tagName,
-                                                 isReleaseOrTagFiltering));
-  });
+        return hasTriggeredJob(
+            p,
+            determineStartFrom(action, type, branch, null, releaseName, tagName, isReleaseOrTagFiltering)
+        );
+    });
 
-  const currentRepoPipelines =
-      pipelinesOnCommitBranch.concat(pipelinesOnOtherBranch);
+    const currentRepoPipelines = pipelinesOnCommitBranch.concat(pipelinesOnOtherBranch);
 
-  return currentRepoPipelines.concat(pipelinesWithSubscribedRepos);
+    return currentRepoPipelines.concat(pipelinesWithSubscribedRepos);
 }
 
 /**
@@ -385,38 +388,37 @@ async function triggeredPipelines(pipelineFactory, scmConfig, branch, type,
  * @return {Promise<Array>}  Array of created events
  */
 async function startEvents(eventConfigs, eventFactory) {
-  const events = [];
-  let errorCount = 0;
-  let eventsCount = 0;
+    const events = [];
+    let errorCount = 0;
+    let eventsCount = 0;
 
-  const results = await Promise.allSettled(eventConfigs.map(eventConfig => {
-    if (eventConfig && eventConfig.configPipelineSha) {
-      eventsCount += 1;
+    const results = await Promise.allSettled(
+        eventConfigs.map(eventConfig => {
+            if (eventConfig && eventConfig.configPipelineSha) {
+                eventsCount += 1;
 
-      return eventFactory.create(eventConfig);
+                return eventFactory.create(eventConfig);
+            }
+
+            return Promise.resolve(null);
+        })
+    );
+
+    results.forEach((result, i) => {
+        if (result.status === 'fulfilled') {
+            if (result.value) events.push(result.value);
+        } else {
+            errorCount += 1;
+            logger.error(`pipeline:${eventConfigs[i].pipelineId} error in starting event`, result.reason);
+        }
+    });
+
+    if (errorCount && errorCount === eventsCount) {
+        // preserve current behavior of returning 500 on error
+        throw new Error('Failed to start any events');
     }
 
-    return Promise.resolve(null);
-  }));
-
-  results.forEach((result, i) => {
-    if (result.status === 'fulfilled') {
-      if (result.value)
-        events.push(result.value);
-    } else {
-      errorCount += 1;
-      logger.error(
-          `pipeline:${eventConfigs[i].pipelineId} error in starting event`,
-          result.reason);
-    }
-  });
-
-  if (errorCount && errorCount === eventsCount) {
-    // preserve current behavior of returning 500 on error
-    throw new Error('Failed to start any events');
-  }
-
-  return events;
+    return events;
 }
 
 /**
@@ -442,147 +444,147 @@ async function startEvents(eventConfigs, eventFactory) {
  * @return {Promise}
  */
 async function createPREvents(options, request) {
-  const {
-    username,
-    scmConfig,
-    prRef,
-    prNum,
-    pipelines,
-    prTitle,
-    changedFiles,
-    branch,
-    action,
-    prSource,
-    restrictPR,
-    chainPR,
-    ref,
-    releaseName
-  } = options;
-  const {scm} = request.server.app.pipelineFactory;
-  const {eventFactory, pipelineFactory, userFactory} = request.server.app;
-  const scmDisplayName =
-      scm.getDisplayName({scmContext : scmConfig.scmContext});
-  const userDisplayName = `${scmDisplayName}:${username}`;
-  let {sha} = options;
-
-  scmConfig.prNum = prNum;
-
-  const eventConfigs = await Promise.all(pipelines.map(async p => {
-    try {
-      const b = await p.branch;
-      // obtain pipeline's latest commit sha for branch specific job
-      let configPipelineSha = '';
-      let subscribedConfigSha = '';
-      let eventConfig = {};
-
-      // Check if the webhook event is from a subscribed repo and
-      // and fetch the source repo commit sha and save the subscribed sha
-      if (uriTrimmer(scmConfig.scmUri) !== uriTrimmer(p.scmUri)) {
-        subscribedConfigSha = sha;
-
-        try {
-          configPipelineSha = await pipelineFactory.scm.getCommitSha({
-            scmUri : p.scmUri,
-            scmContext : scmConfig.scmContext,
-            token : scmConfig.token
-          });
-        } catch (err) {
-          if (err.status >= 500) {
-            throw err;
-          } else {
-            logger.info(`skip create event for branch: ${b}`);
-          }
-        }
-      } else {
-        try {
-          configPipelineSha = await pipelineFactory.scm.getCommitSha(scmConfig);
-        } catch (err) {
-          if (err.status >= 500) {
-            throw err;
-          } else {
-            logger.info(`skip create event for branch: ${b}`);
-          }
-        }
-      }
-
-      const {skipMessage, resolvedChainPR} = getSkipMessageAndChainPR({
-        // Workaround for pipelines which has NULL value in
-        // `pipeline.annotations`
-        pipeline : !p.annotations ? {annotations : {}, ...p} : p,
-        prSource,
-        restrictPR,
-        chainPR
-      });
-
-      const prInfo = await eventFactory.scm.getPrInfo(scmConfig);
-
-      eventConfig = {
-        pipelineId : p.id,
-        type : 'pr',
-        webhooks : true,
+    const {
         username,
-        scmContext : scmConfig.scmContext,
-        sha,
-        configPipelineSha,
-        startFrom : `~pr:${branch}`,
-        changedFiles,
-        causeMessage : `${action} by ${userDisplayName}`,
-        chainPR : resolvedChainPR,
+        scmConfig,
         prRef,
         prNum,
+        pipelines,
         prTitle,
-        prInfo,
+        changedFiles,
+        branch,
+        action,
         prSource,
-        baseBranch : branch
-      };
+        restrictPR,
+        chainPR,
+        ref,
+        releaseName
+    } = options;
+    const { scm } = request.server.app.pipelineFactory;
+    const { eventFactory, pipelineFactory, userFactory } = request.server.app;
+    const scmDisplayName = scm.getDisplayName({ scmContext: scmConfig.scmContext });
+    const userDisplayName = `${scmDisplayName}:${username}`;
+    let { sha } = options;
 
-      if (b === branch) {
-        eventConfig.startFrom = '~pr';
-      }
+    scmConfig.prNum = prNum;
 
-      // Check if the webhook event is from a subscribed repo and
-      // set the jobs entrypoint from ~startFrom
-      // For subscribed PR event, it should be mimicked as a commit
-      // in order to function properly
-      if (uriTrimmer(scmConfig.scmUri) !== uriTrimmer(p.scmUri)) {
-        eventConfig = {
-          pipelineId : p.id,
-          type : 'pipeline',
-          webhooks : true,
-          username,
-          scmContext : scmConfig.scmContext,
-          startFrom : '~subscribe',
-          sha : configPipelineSha,
-          configPipelineSha,
-          changedFiles,
-          baseBranch : branch,
-          causeMessage : `Merged by ${username}`,
-          releaseName,
-          ref,
-          subscribedEvent : true,
-          subscribedConfigSha,
-          subscribedSourceUrl : prInfo.url
-        };
+    const eventConfigs = await Promise.all(
+        pipelines.map(async p => {
+            try {
+                const b = await p.branch;
+                // obtain pipeline's latest commit sha for branch specific job
+                let configPipelineSha = '';
+                let subscribedConfigSha = '';
+                let eventConfig = {};
 
-        await updateAdmins(userFactory, username, scmConfig.scmContext, p.id,
-                           pipelineFactory);
-      }
+                // Check if the webhook event is from a subscribed repo and
+                // and fetch the source repo commit sha and save the subscribed sha
+                if (uriTrimmer(scmConfig.scmUri) !== uriTrimmer(p.scmUri)) {
+                    subscribedConfigSha = sha;
 
-      if (skipMessage) {
-        eventConfig.skipMessage = skipMessage;
-      }
+                    try {
+                        configPipelineSha = await pipelineFactory.scm.getCommitSha({
+                            scmUri: p.scmUri,
+                            scmContext: scmConfig.scmContext,
+                            token: scmConfig.token
+                        });
+                    } catch (err) {
+                        if (err.status >= 500) {
+                            throw err;
+                        } else {
+                            logger.info(`skip create event for branch: ${b}`);
+                        }
+                    }
+                } else {
+                    try {
+                        configPipelineSha = await pipelineFactory.scm.getCommitSha(scmConfig);
+                    } catch (err) {
+                        if (err.status >= 500) {
+                            throw err;
+                        } else {
+                            logger.info(`skip create event for branch: ${b}`);
+                        }
+                    }
+                }
 
-      return eventConfig;
-    } catch (err) {
-      logger.warn(`pipeline:${p.id} error in starting event`, err);
+                const { skipMessage, resolvedChainPR } = getSkipMessageAndChainPR({
+                    // Workaround for pipelines which has NULL value in
+                    // `pipeline.annotations`
+                    pipeline: !p.annotations ? { annotations: {}, ...p } : p,
+                    prSource,
+                    restrictPR,
+                    chainPR
+                });
 
-      return null;
-    }
-  }));
+                const prInfo = await eventFactory.scm.getPrInfo(scmConfig);
 
-  const events = await startEvents(eventConfigs, eventFactory);
+                eventConfig = {
+                    pipelineId: p.id,
+                    type: 'pr',
+                    webhooks: true,
+                    username,
+                    scmContext: scmConfig.scmContext,
+                    sha,
+                    configPipelineSha,
+                    startFrom: `~pr:${branch}`,
+                    changedFiles,
+                    causeMessage: `${action} by ${userDisplayName}`,
+                    chainPR: resolvedChainPR,
+                    prRef,
+                    prNum,
+                    prTitle,
+                    prInfo,
+                    prSource,
+                    baseBranch: branch
+                };
 
-  return events;
+                if (b === branch) {
+                    eventConfig.startFrom = '~pr';
+                }
+
+                // Check if the webhook event is from a subscribed repo and
+                // set the jobs entrypoint from ~startFrom
+                // For subscribed PR event, it should be mimicked as a commit
+                // in order to function properly
+                if (uriTrimmer(scmConfig.scmUri) !== uriTrimmer(p.scmUri)) {
+                    eventConfig = {
+                        pipelineId: p.id,
+                        type: 'pipeline',
+                        webhooks: true,
+                        username,
+                        scmContext: scmConfig.scmContext,
+                        startFrom: '~subscribe',
+                        sha: configPipelineSha,
+                        configPipelineSha,
+                        changedFiles,
+                        baseBranch: branch,
+                        causeMessage: `Merged by ${username}`,
+                        releaseName,
+                        ref,
+                        subscribedEvent: true,
+                        subscribedConfigSha,
+                        subscribedSourceUrl: prInfo.url
+                    };
+
+                    await updateAdmins(userFactory, username, scmConfig.scmContext, p.id, pipelineFactory);
+                }
+
+                if (skipMessage) {
+                    eventConfig.skipMessage = skipMessage;
+                }
+
+                return eventConfig;
+            } catch (err) {
+                logger.warn(`pipeline:${p.id} error in starting event`, err);
+
+                return null;
+            }
+        })
+    );
+
+    const events = await startEvents(eventConfigs, eventFactory);
+
+    return events;
 }
 
 /**
@@ -593,14 +595,19 @@ async function createPREvents(options, request) {
  * @param  {String}     config.action       Event action
  * @param  {String}     config.name         Prefix of the PR job name: PR-prNum
  */
-async function batchStopJobs({pipelines, prNum, action, name}) {
-  const prJobs = await Promise.all(pipelines.map(
-      p => p.getJobs({
-              type : 'pr'
-            }).then(jobs => jobs.filter(j => j.name.includes(name)))));
-  const flatPRJobs = prJobs.reduce((prev, curr) => prev.concat(curr));
+async function batchStopJobs({ pipelines, prNum, action, name }) {
+    const prJobs = await Promise.all(
+        pipelines.map(p =>
+            p
+                .getJobs({
+                    type: 'pr'
+                })
+                .then(jobs => jobs.filter(j => j.name.includes(name)))
+        )
+    );
+    const flatPRJobs = prJobs.reduce((prev, curr) => prev.concat(curr));
 
-  await Promise.all(flatPRJobs.map(j => stopJob({job : j, prNum, action})));
+    await Promise.all(flatPRJobs.map(j => stopJob({ job: j, prNum, action })));
 }
 
 /**
@@ -616,22 +623,25 @@ async function batchStopJobs({pipelines, prNum, action, name}) {
  * @param  {Hapi.h}       h                     Response toolkit
  */
 async function pullRequestOpened(options, request, h) {
-  const {hookId} = options;
+    const { hookId } = options;
 
-  return createPREvents(options, request)
-      .then(events => {
-        events.forEach(e => {
-          request.log([ 'webhook', hookId, e.id ], `Event ${e.id} started`);
+    return createPREvents(options, request)
+        .then(events => {
+            events.forEach(e => {
+                request.log(['webhook', hookId, e.id], `Event ${e.id} started`);
+            });
+
+            return h.response().code(201);
+        })
+        .catch(err => {
+            logger.error(
+                `Failed to pullRequestOpened: [${hookId}, pipeline:${
+                    options.pipeline && options.pipeline.id
+                }]: ${err}`
+            );
+
+            throw err;
         });
-
-        return h.response().code(201);
-      })
-      .catch(err => {
-        logger.error(`Failed to pullRequestOpened: [${hookId}, pipeline:${
-            options.pipeline && options.pipeline.id}]: ${err}`);
-
-        throw err;
-      });
 }
 
 /**
@@ -648,32 +658,36 @@ async function pullRequestOpened(options, request, h) {
  * @param  {Hapi.reply}   reply                     Reply to user
  */
 async function pullRequestClosed(options, request, h) {
-  const {pipelines, hookId, name, prNum, action} = options;
-  const updatePRJobs = job =>
-      stopJob({job, prNum, action})
-          .then(() => request.log([ 'webhook', hookId, job.id ],
-                                  `${job.name} stopped`))
-          .then(() => {
-            job.archived = true;
+    const { pipelines, hookId, name, prNum, action } = options;
+    const updatePRJobs = job =>
+        stopJob({ job, prNum, action })
+            .then(() => request.log(['webhook', hookId, job.id], `${job.name} stopped`))
+            .then(() => {
+                job.archived = true;
 
-            return job.update();
-          })
-          .then(() => request.log([ 'webhook', hookId, job.id ],
-                                  `${job.name} disabled and archived`));
+                return job.update();
+            })
+            .then(() => request.log(['webhook', hookId, job.id], `${job.name} disabled and archived`));
 
-  return Promise
-      .all(pipelines.map(p => p.getJobs({type : 'pr'}).then(jobs => {
-        const prJobs = jobs.filter(j => j.name.includes(name));
+    return Promise.all(
+        pipelines.map(p =>
+            p.getJobs({ type: 'pr' }).then(jobs => {
+                const prJobs = jobs.filter(j => j.name.includes(name));
 
-        return Promise.all(prJobs.map(j => updatePRJobs(j)));
-      })))
-      .then(() => h.response().code(200))
-      .catch(err => {
-        logger.error(`Failed to pullRequestClosed: [${hookId}, pipeline:${
-            options.pipeline && options.pipeline.id}]: ${err}`);
+                return Promise.all(prJobs.map(j => updatePRJobs(j)));
+            })
+        )
+    )
+        .then(() => h.response().code(200))
+        .catch(err => {
+            logger.error(
+                `Failed to pullRequestClosed: [${hookId}, pipeline:${
+                    options.pipeline && options.pipeline.id
+                }]: ${err}`
+            );
 
-        throw err;
-      });
+            throw err;
+        });
 }
 
 /**
@@ -693,26 +707,29 @@ async function pullRequestClosed(options, request, h) {
  * @param  {Hapi.reply}   reply                 Reply to user
  */
 async function pullRequestSync(options, request, h) {
-  const {pipelines, hookId, name, prNum, action} = options;
+    const { pipelines, hookId, name, prNum, action } = options;
 
-  await batchStopJobs({pipelines, name, prNum, action});
+    await batchStopJobs({ pipelines, name, prNum, action });
 
-  request.log([ 'webhook', hookId ], `Job(s) for ${name} stopped`);
+    request.log(['webhook', hookId], `Job(s) for ${name} stopped`);
 
-  return createPREvents(options, request)
-      .then(events => {
-        events.forEach(e => {
-          request.log([ 'webhook', hookId, e.id ], `Event ${e.id} started`);
+    return createPREvents(options, request)
+        .then(events => {
+            events.forEach(e => {
+                request.log(['webhook', hookId, e.id], `Event ${e.id} started`);
+            });
+
+            return h.response().code(201);
+        })
+        .catch(err => {
+            logger.error(
+                `Failed to pullRequestSync: [${hookId}, pipeline:${
+                    options.pipeline && options.pipeline.id
+                }]: ${err}`
+            );
+
+            throw err;
         });
-
-        return h.response().code(201);
-      })
-      .catch(err => {
-        logger.error(`Failed to pullRequestSync: [${hookId}, pipeline:${
-            options.pipeline && options.pipeline.id}]: ${err}`);
-
-        throw err;
-      });
 }
 
 /**
@@ -735,28 +752,25 @@ async function pullRequestSync(options, request, h) {
  * @return {Promise}                                Promise that resolves into a
  *     SCM token
  */
-async function obtainScmToken(
-    {pluginOptions, userFactory, username, scmContext, scm}) {
-  const {readOnlyEnabled, headlessAccessToken} =
-      getReadOnlyInfo({scm, scmContext});
+async function obtainScmToken({ pluginOptions, userFactory, username, scmContext, scm }) {
+    const { readOnlyEnabled, headlessAccessToken } = getReadOnlyInfo({ scm, scmContext });
 
-  // If pipeline is in read-only SCM, use read-only token
-  if (readOnlyEnabled && headlessAccessToken) {
-    return headlessAccessToken;
-  }
+    // If pipeline is in read-only SCM, use read-only token
+    if (readOnlyEnabled && headlessAccessToken) {
+        return headlessAccessToken;
+    }
 
-  const user = await userFactory.get({username, scmContext});
+    const user = await userFactory.get({ username, scmContext });
 
-  // Use generic username and token
-  if (!user) {
-    const genericUsername = pluginOptions.username;
-    const buildBotUser =
-        await userFactory.get({username : genericUsername, scmContext});
+    // Use generic username and token
+    if (!user) {
+        const genericUsername = pluginOptions.username;
+        const buildBotUser = await userFactory.get({ username: genericUsername, scmContext });
 
-    return buildBotUser.unsealToken();
-  }
+        return buildBotUser.unsealToken();
+    }
 
-  return user.unsealToken();
+    return user.unsealToken();
 }
 
 /**
@@ -765,21 +779,21 @@ async function obtainScmToken(
  * @returns {Object}            Metadata
  */
 function createMeta(parsed) {
-  const {action, ref, releaseId, releaseName, releaseAuthor} = parsed;
+    const { action, ref, releaseId, releaseName, releaseAuthor } = parsed;
 
-  if (action === 'release') {
-    return {
-      sd : {
-        release : {id : releaseId, name : releaseName, author : releaseAuthor},
-        tag : {name : ref}
-      }
-    };
-  }
-  if (action === 'tag') {
-    return {sd : {tag : {name : ref}}};
-  }
+    if (action === 'release') {
+        return {
+            sd: {
+                release: { id: releaseId, name: releaseName, author: releaseAuthor },
+                tag: { name: ref }
+            }
+        };
+    }
+    if (action === 'tag') {
+        return { sd: { tag: { name: ref } } };
+    }
 
-  return {};
+    return {};
 }
 
 /**
@@ -801,89 +815,94 @@ function createMeta(parsed) {
  * @param  {Object}             parsed
  */
 function pullRequestEvent(pluginOptions, request, h, parsed, token) {
-  const {pipelineFactory, userFactory} = request.server.app;
-  const {
-    hookId,
-    action,
-    checkoutUrl,
-    branch,
-    sha,
-    prNum,
-    prTitle,
-    prRef,
-    prSource,
-    username,
-    scmContext,
-    changedFiles,
-    type,
-    releaseName,
-    ref
-  } = parsed;
-  const fullCheckoutUrl = `${checkoutUrl}#${branch}`;
-  const scmConfig = {scmUri : '', token, scmContext};
-  const {restrictPR, chainPR} = pluginOptions;
+    const { pipelineFactory, userFactory } = request.server.app;
+    const {
+        hookId,
+        action,
+        checkoutUrl,
+        branch,
+        sha,
+        prNum,
+        prTitle,
+        prRef,
+        prSource,
+        username,
+        scmContext,
+        changedFiles,
+        type,
+        releaseName,
+        ref
+    } = parsed;
+    const fullCheckoutUrl = `${checkoutUrl}#${branch}`;
+    const scmConfig = { scmUri: '', token, scmContext };
+    const { restrictPR, chainPR } = pluginOptions;
 
-  request.log([ 'webhook', hookId ],
-              `PR #${prNum} ${action} for ${fullCheckoutUrl}`);
+    request.log(['webhook', hookId], `PR #${prNum} ${action} for ${fullCheckoutUrl}`);
 
-  return pipelineFactory.scm
-      .parseUrl({checkoutUrl : fullCheckoutUrl, token, scmContext})
-      .then(scmUri => {
-        scmConfig.scmUri = scmUri;
+    return pipelineFactory.scm
+        .parseUrl({ checkoutUrl: fullCheckoutUrl, token, scmContext })
+        .then(scmUri => {
+            scmConfig.scmUri = scmUri;
 
-        return triggeredPipelines(pipelineFactory, scmConfig, branch, type,
-                                  action, changedFiles, releaseName, ref);
-      })
-      .then(async pipelines => {
-        if (!pipelines || pipelines.length === 0) {
-          const message = `Skipping since Pipeline triggered by PRs against ${
-              fullCheckoutUrl} does not exist`;
+            return triggeredPipelines(
+                pipelineFactory,
+                scmConfig,
+                branch,
+                type,
+                action,
+                changedFiles,
+                releaseName,
+                ref
+            );
+        })
+        .then(async pipelines => {
+            if (!pipelines || pipelines.length === 0) {
+                const message = `Skipping since Pipeline triggered by PRs against ${fullCheckoutUrl} does not exist`;
 
-          request.log([ 'webhook', hookId ], message);
+                request.log(['webhook', hookId], message);
 
-          return h.response({message}).code(204);
-        }
+                return h.response({ message }).code(204);
+            }
 
-        const options = {
-          name : `PR-${prNum}`,
-          hookId,
-          sha,
-          username,
-          scmConfig,
-          prRef,
-          prNum,
-          prTitle,
-          prSource,
-          changedFiles,
-          action : action.charAt(0).toUpperCase() + action.slice(1),
-          branch,
-          fullCheckoutUrl,
-          restrictPR,
-          chainPR,
-          pipelines,
-          ref,
-          releaseName
-        };
+            const options = {
+                name: `PR-${prNum}`,
+                hookId,
+                sha,
+                username,
+                scmConfig,
+                prRef,
+                prNum,
+                prTitle,
+                prSource,
+                changedFiles,
+                action: action.charAt(0).toUpperCase() + action.slice(1),
+                branch,
+                fullCheckoutUrl,
+                restrictPR,
+                chainPR,
+                pipelines,
+                ref,
+                releaseName
+            };
 
-        await batchUpdateAdmins(
-            {userFactory, pipelines, username, scmContext, pipelineFactory});
+            await batchUpdateAdmins({ userFactory, pipelines, username, scmContext, pipelineFactory });
 
-        switch (action) {
-        case 'opened':
-        case 'reopened':
-          return pullRequestOpened(options, request, h);
-        case 'synchronized':
-          return pullRequestSync(options, request, h);
-        case 'closed':
-        default:
-          return pullRequestClosed(options, request, h);
-        }
-      })
-      .catch(err => {
-        logger.error(`[${hookId}]: ${err}`);
+            switch (action) {
+                case 'opened':
+                case 'reopened':
+                    return pullRequestOpened(options, request, h);
+                case 'synchronized':
+                    return pullRequestSync(options, request, h);
+                case 'closed':
+                default:
+                    return pullRequestClosed(options, request, h);
+            }
+        })
+        .catch(err => {
+            logger.error(`[${hookId}]: ${err}`);
 
-        throw err;
-      });
+            throw err;
+        });
 }
 
 /**
@@ -901,155 +920,161 @@ function pullRequestEvent(pluginOptions, request, h, parsed, token) {
  * @returns {Promise}                               Promise that resolves into
  *     events
  */
-async function createEvents(eventFactory, userFactory, pipelineFactory,
-                            pipelines, parsed, skipMessage, scmConfigFromHook) {
-  const {
-    action,
-    branch,
-    sha,
-    username,
-    scmContext,
-    changedFiles,
-    type,
-    releaseName,
-    ref
-  } = parsed;
+async function createEvents(
+    eventFactory,
+    userFactory,
+    pipelineFactory,
+    pipelines,
+    parsed,
+    skipMessage,
+    scmConfigFromHook
+) {
+    const { action, branch, sha, username, scmContext, changedFiles, type, releaseName, ref } = parsed;
 
-  const pipelineTuples = await Promise.all(pipelines.map(async p => {
-    const resolvedBranch = await p.branch;
-    let isReleaseOrTagFiltering = '';
+    const pipelineTuples = await Promise.all(
+        pipelines.map(async p => {
+            const resolvedBranch = await p.branch;
+            let isReleaseOrTagFiltering = '';
 
-    if (action === 'release' || action === 'tag') {
-      isReleaseOrTagFiltering =
-          isReleaseOrTagFilteringEnabled(action, p.workflowGraph);
-    }
-    const startFrom =
-        determineStartFrom(action, type, branch, resolvedBranch, releaseName,
-                           ref, isReleaseOrTagFiltering);
-    const tuple = {branch : resolvedBranch, pipeline : p, startFrom};
-
-    return tuple;
-  }));
-
-  const ignoreExtraTriggeredPipelines = pipelineTuples.filter(t => {
-    // empty event is not created when it is triggered by extra triggers (e.g.
-    // ~tag, ~release)
-    if (EXTRA_TRIGGERS.test(t.startFrom) &&
-        !hasTriggeredJob(t.pipeline, t.startFrom)) {
-      logger.warn(
-          `Event not created: there are no jobs triggered by ${t.startFrom}`);
-
-      return false;
-    }
-
-    return true;
-  });
-
-  const eventConfigs =
-      await Promise.all(ignoreExtraTriggeredPipelines.map(async pTuple => {
-        try {
-          const pipelineBranch = pTuple.branch;
-          let isReleaseOrTagFiltering = '';
-
-          if (action === 'release' || action === 'tag') {
-            isReleaseOrTagFiltering = isReleaseOrTagFilteringEnabled(
-                action, pTuple.pipeline.workflowGraph);
-          }
-          const startFrom =
-              determineStartFrom(action, type, branch, pipelineBranch,
-                                 releaseName, ref, isReleaseOrTagFiltering);
-          const token = await pTuple.pipeline.token;
-          const scmConfig = {
-            scmUri : pTuple.pipeline.scmUri,
-            token,
-            scmContext
-          };
-          // obtain pipeline's latest commit sha for branch specific job
-          let configPipelineSha = '';
-
-          try {
-            configPipelineSha =
-                await pipelineFactory.scm.getCommitSha(scmConfig);
-          } catch (err) {
-            if (err.status >= 500) {
-              throw err;
-            } else {
-              logger.info(`skip create event for branch: ${pipelineBranch}`);
+            if (action === 'release' || action === 'tag') {
+                isReleaseOrTagFiltering = isReleaseOrTagFilteringEnabled(action, p.workflowGraph);
             }
-          }
-          const eventConfig = {
-            pipelineId : pTuple.pipeline.id,
-            type : 'pipeline',
-            webhooks : true,
-            username,
-            scmContext,
-            startFrom,
-            sha,
-            configPipelineSha,
-            changedFiles,
-            baseBranch : branch,
-            causeMessage : `Merged by ${username}`,
-            meta : createMeta(parsed),
-            releaseName,
-            ref
-          };
+            const startFrom = determineStartFrom(
+                action,
+                type,
+                branch,
+                resolvedBranch,
+                releaseName,
+                ref,
+                isReleaseOrTagFiltering
+            );
+            const tuple = { branch: resolvedBranch, pipeline: p, startFrom };
 
-          // Check is the webhook event is from a subscribed repo and
-          // set the jobs entry point to ~subscribe
-          if (uriTrimmer(scmConfigFromHook.scmUri) !==
-              uriTrimmer(pTuple.pipeline.scmUri)) {
-            eventConfig.subscribedEvent = true;
-            eventConfig.startFrom = '~subscribe';
-            eventConfig.subscribedConfigSha = eventConfig.sha;
+            return tuple;
+        })
+    );
 
-            try {
-              eventConfig.sha =
-                  await pipelineFactory.scm.getCommitSha(scmConfig);
-            } catch (err) {
-              if (err.status >= 500) {
-                throw err;
-              } else {
-                logger.info(`skip create event for this subscribed trigger`);
-              }
-            }
+    const ignoreExtraTriggeredPipelines = pipelineTuples.filter(t => {
+        // empty event is not created when it is triggered by extra triggers (e.g.
+        // ~tag, ~release)
+        if (EXTRA_TRIGGERS.test(t.startFrom) && !hasTriggeredJob(t.pipeline, t.startFrom)) {
+            logger.warn(`Event not created: there are no jobs triggered by ${t.startFrom}`);
 
-            try {
-              const commitInfo = await pipelineFactory.scm.decorateCommit({
-                scmUri : scmConfigFromHook.scmUri,
-                scmContext,
-                sha : eventConfig.subscribedConfigSha,
-                token
-              });
-
-              eventConfig.subscribedSourceUrl = commitInfo.url;
-            } catch (err) {
-              if (err.status >= 500) {
-                throw err;
-              } else {
-                logger.info(`skip create event for this subscribed trigger`);
-              }
-            }
-          }
-
-          if (skipMessage) {
-            eventConfig.skipMessage = skipMessage;
-          }
-
-          await updateAdmins(userFactory, username, scmContext, pTuple.pipeline,
-                             pipelineFactory);
-
-          return eventConfig;
-        } catch (err) {
-          logger.warn(`pipeline:${pTuple.pipeline.id} error in starting event`,
-                      err);
-
-          return null;
+            return false;
         }
-      }));
 
-  const events = await startEvents(eventConfigs, eventFactory);
+        return true;
+    });
 
-  return events;
+    const eventConfigs = await Promise.all(
+        ignoreExtraTriggeredPipelines.map(async pTuple => {
+            try {
+                const pipelineBranch = pTuple.branch;
+                let isReleaseOrTagFiltering = '';
+
+                if (action === 'release' || action === 'tag') {
+                    isReleaseOrTagFiltering = isReleaseOrTagFilteringEnabled(
+                        action,
+                        pTuple.pipeline.workflowGraph
+                    );
+                }
+                const startFrom = determineStartFrom(
+                    action,
+                    type,
+                    branch,
+                    pipelineBranch,
+                    releaseName,
+                    ref,
+                    isReleaseOrTagFiltering
+                );
+                const token = await pTuple.pipeline.token;
+                const scmConfig = {
+                    scmUri: pTuple.pipeline.scmUri,
+                    token,
+                    scmContext
+                };
+                // obtain pipeline's latest commit sha for branch specific job
+                let configPipelineSha = '';
+
+                try {
+                    configPipelineSha = await pipelineFactory.scm.getCommitSha(scmConfig);
+                } catch (err) {
+                    if (err.status >= 500) {
+                        throw err;
+                    } else {
+                        logger.info(`skip create event for branch: ${pipelineBranch}`);
+                    }
+                }
+                const eventConfig = {
+                    pipelineId: pTuple.pipeline.id,
+                    type: 'pipeline',
+                    webhooks: true,
+                    username,
+                    scmContext,
+                    startFrom,
+                    sha,
+                    configPipelineSha,
+                    changedFiles,
+                    baseBranch: branch,
+                    causeMessage: `Merged by ${username}`,
+                    meta: createMeta(parsed),
+                    releaseName,
+                    ref
+                };
+
+                // Check is the webhook event is from a subscribed repo and
+                // set the jobs entry point to ~subscribe
+                if (uriTrimmer(scmConfigFromHook.scmUri) !== uriTrimmer(pTuple.pipeline.scmUri)) {
+                    eventConfig.subscribedEvent = true;
+                    eventConfig.startFrom = '~subscribe';
+                    eventConfig.subscribedConfigSha = eventConfig.sha;
+
+                    try {
+                        eventConfig.sha = await pipelineFactory.scm.getCommitSha(scmConfig);
+                    } catch (err) {
+                        if (err.status >= 500) {
+                            throw err;
+                        } else {
+                            logger.info(`skip create event for this subscribed trigger`);
+                        }
+                    }
+
+                    try {
+                        const commitInfo = await pipelineFactory.scm.decorateCommit({
+                            scmUri: scmConfigFromHook.scmUri,
+                            scmContext,
+                            sha: eventConfig.subscribedConfigSha,
+                            token
+                        });
+
+                        eventConfig.subscribedSourceUrl = commitInfo.url;
+                    } catch (err) {
+                        if (err.status >= 500) {
+                            throw err;
+                        } else {
+                            logger.info(`skip create event for this subscribed trigger`);
+                        }
+                    }
+                }
+
+                if (skipMessage) {
+                    eventConfig.skipMessage = skipMessage;
+                }
+
+                await updateAdmins(userFactory, username, scmContext, pTuple.pipeline, pipelineFactory);
+
+                return eventConfig;
+            } catch (err) {
+                logger.warn(`pipeline:${pTuple.pipeline.id} error in starting event`, err);
+
+                return null;
+            }
+        })
+    );
+
+    const events = await startEvents(eventConfigs, eventFactory);
+
+    return events;
 }
 
 /**
@@ -1066,57 +1091,63 @@ async function createEvents(eventFactory, userFactory, pipelineFactory,
  *     builds
  */
 async function pushEvent(request, h, parsed, skipMessage, token) {
-  const {eventFactory, pipelineFactory, userFactory} = request.server.app;
-  const {
-    hookId,
-    checkoutUrl,
-    branch,
-    scmContext,
-    type,
-    action,
-    changedFiles,
-    releaseName,
-    ref
-  } = parsed;
-  const fullCheckoutUrl = `${checkoutUrl}#${branch}`;
-  const scmConfig = {scmUri : '', token : '', scmContext};
+    const { eventFactory, pipelineFactory, userFactory } = request.server.app;
+    const { hookId, checkoutUrl, branch, scmContext, type, action, changedFiles, releaseName, ref } = parsed;
+    const fullCheckoutUrl = `${checkoutUrl}#${branch}`;
+    const scmConfig = { scmUri: '', token: '', scmContext };
 
-  request.log([ 'webhook', hookId ], `Push for ${fullCheckoutUrl}`);
+    request.log(['webhook', hookId], `Push for ${fullCheckoutUrl}`);
 
-  try {
-    scmConfig.token = token;
-    scmConfig.scmUri = await pipelineFactory.scm.parseUrl(
-        {checkoutUrl : fullCheckoutUrl, token, scmContext});
+    try {
+        scmConfig.token = token;
+        scmConfig.scmUri = await pipelineFactory.scm.parseUrl({
+            checkoutUrl: fullCheckoutUrl,
+            token,
+            scmContext
+        });
 
-    const pipelines =
-        await triggeredPipelines(pipelineFactory, scmConfig, branch, type,
-                                 action, changedFiles, releaseName, ref);
-    let events = [];
+        const pipelines = await triggeredPipelines(
+            pipelineFactory,
+            scmConfig,
+            branch,
+            type,
+            action,
+            changedFiles,
+            releaseName,
+            ref
+        );
+        let events = [];
 
-    if (!pipelines || pipelines.length === 0) {
-      request.log([ 'webhook', hookId ],
-                  `Skipping since Pipeline ${fullCheckoutUrl} does not exist`);
-    } else {
-      events = await createEvents(eventFactory, userFactory, pipelineFactory,
-                                  pipelines, parsed, skipMessage, scmConfig);
+        if (!pipelines || pipelines.length === 0) {
+            request.log(['webhook', hookId], `Skipping since Pipeline ${fullCheckoutUrl} does not exist`);
+        } else {
+            events = await createEvents(
+                eventFactory,
+                userFactory,
+                pipelineFactory,
+                pipelines,
+                parsed,
+                skipMessage,
+                scmConfig
+            );
+        }
+
+        const hasBuildEvents = events.filter(e => e.builds !== null);
+
+        if (hasBuildEvents.length === 0) {
+            return h.response({ message: 'No jobs to start' }).code(204);
+        }
+
+        hasBuildEvents.forEach(e => {
+            request.log(['webhook', hookId, e.id], `Event ${e.id} started`);
+        });
+
+        return h.response().code(201);
+    } catch (err) {
+        logger.error(`[${hookId}]: ${err}`);
+
+        throw err;
     }
-
-    const hasBuildEvents = events.filter(e => e.builds !== null);
-
-    if (hasBuildEvents.length === 0) {
-      return h.response({message : 'No jobs to start'}).code(204);
-    }
-
-    hasBuildEvents.forEach(e => {
-      request.log([ 'webhook', hookId, e.id ], `Event ${e.id} started`);
-    });
-
-    return h.response().code(201);
-  } catch (err) {
-    logger.error(`[${hookId}]: ${err}`);
-
-    throw err;
-  }
 }
 
 /**
@@ -1132,14 +1163,13 @@ async function pushEvent(request, h, parsed, skipMessage, token) {
  * @returns  {Promise}                     Specific SHA1 commit to start the
  *     build with
  */
-async function getCommitRefSha(
-    {scm, token, ref, refType, checkoutUrl, scmContext}) {
-  // For example, git@github.com:screwdriver-cd/data-schema.git =>
-  // screwdriver-cd, data-schema
-  const owner = CHECKOUT_URL_SCHEMA_REGEXP.exec(checkoutUrl)[2];
-  const repo = CHECKOUT_URL_SCHEMA_REGEXP.exec(checkoutUrl)[3];
+async function getCommitRefSha({ scm, token, ref, refType, checkoutUrl, scmContext }) {
+    // For example, git@github.com:screwdriver-cd/data-schema.git =>
+    // screwdriver-cd, data-schema
+    const owner = CHECKOUT_URL_SCHEMA_REGEXP.exec(checkoutUrl)[2];
+    const repo = CHECKOUT_URL_SCHEMA_REGEXP.exec(checkoutUrl)[3];
 
-  return scm.getCommitRefSha({token, owner, repo, ref, refType, scmContext});
+    return scm.getCommitRefSha({ token, owner, repo, ref, refType, scmContext });
 }
 
 /**
@@ -1151,86 +1181,94 @@ async function getCommitRefSha(
  * @return {Promise}
  */
 async function startHookEvent(request, h, webhookConfig) {
-  const {userFactory, pipelineFactory} = request.server.app;
-  const {scm} = pipelineFactory;
-  const ignoreUser = webhookConfig.pluginOptions.ignoreCommitsBy;
-  let message = 'Unable to process this kind of event';
-  let skipMessage;
-  let parsedHookId = '';
+    const { userFactory, pipelineFactory } = request.server.app;
+    const { scm } = pipelineFactory;
+    const ignoreUser = webhookConfig.pluginOptions.ignoreCommitsBy;
+    let message = 'Unable to process this kind of event';
+    let skipMessage;
+    let parsedHookId = '';
 
-  const {type, hookId, username, scmContext, ref, checkoutUrl, action, prNum} =
-      webhookConfig;
+    const { type, hookId, username, scmContext, ref, checkoutUrl, action, prNum } = webhookConfig;
 
-  parsedHookId = hookId;
+    parsedHookId = hookId;
 
-  try {
-    // skipping checks
-    if (/\[(skip ci|ci skip)\]/.test(webhookConfig.lastCommitMessage)) {
-      skipMessage = 'Skipping due to the commit message: [skip ci]';
+    try {
+        // skipping checks
+        if (/\[(skip ci|ci skip)\]/.test(webhookConfig.lastCommitMessage)) {
+            skipMessage = 'Skipping due to the commit message: [skip ci]';
+        }
+
+        // if skip ci then don't return
+        if (ignoreUser && ignoreUser.length !== 0 && !skipMessage) {
+            const commitAuthors =
+                Array.isArray(webhookConfig.commitAuthors) && webhookConfig.commitAuthors.length !== 0
+                    ? webhookConfig.commitAuthors
+                    : [username];
+            const validCommitAuthors = commitAuthors.filter(author => !ignoreUser.includes(author));
+
+            if (!validCommitAuthors.length) {
+                message = `Skipping because user ${username} is ignored`;
+                request.log(['webhook', hookId], message);
+
+                return h.response({ message }).code(204);
+            }
+        }
+
+        const token = await obtainScmToken({
+            pluginOptions: webhookConfig.pluginOptions,
+            userFactory,
+            username,
+            scmContext,
+            scm
+        });
+
+        if (action !== 'release' && action !== 'tag') {
+            let scmUri;
+
+            if (type === 'pr') {
+                scmUri = await scm.parseUrl({ checkoutUrl, token, scmContext });
+            }
+            webhookConfig.changedFiles = await scm.getChangedFiles({
+                webhookConfig,
+                type,
+                token,
+                scmContext,
+                scmUri,
+                prNum
+            });
+            request.log(['webhook', hookId], `Changed files are ${webhookConfig.changedFiles}`);
+        } else {
+            // The payload has no sha when webhook event is tag or release, so we need
+            // to get it.
+            try {
+                webhookConfig.sha = await getCommitRefSha({
+                    scm,
+                    token,
+                    ref,
+                    refType: 'tags',
+                    checkoutUrl,
+                    scmContext
+                });
+            } catch (err) {
+                request.log(['webhook', hookId, 'getCommitRefSha'], err);
+
+                // there is a possibility of scm.getCommitRefSha() is not implemented
+                // yet
+                return h.response({ message }).code(204);
+            }
+        }
+
+        if (type === 'pr') {
+            // disregard skip ci for pull request events
+            return pullRequestEvent(webhookConfig.pluginOptions, request, h, webhookConfig, token);
+        }
+
+        return pushEvent(request, h, webhookConfig, skipMessage, token);
+    } catch (err) {
+        logger.error(`[${parsedHookId}]: ${err}`);
+
+        throw err;
     }
-
-    // if skip ci then don't return
-    if (ignoreUser && ignoreUser.length !== 0 && !skipMessage) {
-      const commitAuthors = Array.isArray(webhookConfig.commitAuthors) &&
-                                    webhookConfig.commitAuthors.length !== 0
-                                ? webhookConfig.commitAuthors
-                                : [ username ];
-      const validCommitAuthors =
-          commitAuthors.filter(author => !ignoreUser.includes(author));
-
-      if (!validCommitAuthors.length) {
-        message = `Skipping because user ${username} is ignored`;
-        request.log([ 'webhook', hookId ], message);
-
-        return h.response({message}).code(204);
-      }
-    }
-
-    const token = await obtainScmToken({
-      pluginOptions : webhookConfig.pluginOptions,
-      userFactory,
-      username,
-      scmContext,
-      scm
-    });
-
-    if (action !== 'release' && action !== 'tag') {
-      let scmUri;
-
-      if (type === 'pr') {
-        scmUri = await scm.parseUrl({checkoutUrl, token, scmContext});
-      }
-      webhookConfig.changedFiles = await scm.getChangedFiles(
-          {webhookConfig, type, token, scmContext, scmUri, prNum});
-      request.log([ 'webhook', hookId ],
-                  `Changed files are ${webhookConfig.changedFiles}`);
-    } else {
-      // The payload has no sha when webhook event is tag or release, so we need
-      // to get it.
-      try {
-        webhookConfig.sha = await getCommitRefSha(
-            {scm, token, ref, refType : 'tags', checkoutUrl, scmContext});
-      } catch (err) {
-        request.log([ 'webhook', hookId, 'getCommitRefSha' ], err);
-
-        // there is a possibility of scm.getCommitRefSha() is not implemented
-        // yet
-        return h.response({message}).code(204);
-      }
-    }
-
-    if (type === 'pr') {
-      // disregard skip ci for pull request events
-      return pullRequestEvent(webhookConfig.pluginOptions, request, h,
-                              webhookConfig, token);
-    }
-
-    return pushEvent(request, h, webhookConfig, skipMessage, token);
-  } catch (err) {
-    logger.error(`[${parsedHookId}]: ${err}`);
-
-    throw err;
-  }
 }
 
-module.exports = {startHookEvent};
+module.exports = { startHookEvent };
