@@ -12,10 +12,10 @@ const listRoute = require('./list');
  * @param  {Function} next                  Function to call when done
  */
 const stagesPlugin = {
-  name : 'stages',
-  async register(server) {
-    server.route([ getStageBuildsRoute(), getRoute(), listRoute() ]);
-  }
+    name: 'stages',
+    async register(server) {
+        server.route([getStageBuildsRoute(), getRoute(), listRoute()]);
+    }
 };
 
 module.exports = stagesPlugin;

@@ -14,8 +14,9 @@ const WAIT_TIME = 6;
  * @return {Promise}
  */
 function promiseToWait(timeToWait) {
-  return new Promise(
-      resolve => { setTimeout(() => resolve(), timeToWait * 1000); });
+    return new Promise(resolve => {
+        setTimeout(() => resolve(), timeToWait * 1000);
+    });
 }
 
 /**
@@ -32,13 +33,13 @@ function promiseToWait(timeToWait) {
  * nothing is found, an empty array is returned
  */
 function findJobs(config) {
-  const {instance, pipelineId} = config;
+    const { instance, pipelineId } = config;
 
-  return request({
-    method : 'GET',
-    url : `${instance}/v4/pipelines/${pipelineId}/jobs`,
-    context : {token : config.jwt}
-  });
+    return request({
+        method: 'GET',
+        url: `${instance}/v4/pipelines/${pipelineId}/jobs`,
+        context: { token: config.jwt }
+    });
 }
 
 /**
@@ -60,31 +61,30 @@ function findJobs(config) {
  * nothing is found, an empty array is returned
  */
 function findBuilds(config) {
-  const {instance, jobName, pipelineId, pullRequestNumber} = config;
+    const { instance, jobName, pipelineId, pullRequestNumber } = config;
 
-  return findJobs({instance, pipelineId, jwt : config.jwt}).then(response => {
-    const jobData = response.body;
-    let result = [];
+    return findJobs({ instance, pipelineId, jwt: config.jwt }).then(response => {
+        const jobData = response.body;
+        let result = [];
 
-    if (pullRequestNumber) {
-      result = jobData.filter(job => job.name ===
-                                     `PR-${pullRequestNumber}:${jobName}`);
-    } else {
-      result = jobData.filter(job => job.name === jobName);
-    }
+        if (pullRequestNumber) {
+            result = jobData.filter(job => job.name === `PR-${pullRequestNumber}:${jobName}`);
+        } else {
+            result = jobData.filter(job => job.name === jobName);
+        }
 
-    if (result.length === 0) {
-      return Promise.resolve(result);
-    }
+        if (result.length === 0) {
+            return Promise.resolve(result);
+        }
 
-    const jobId = result[0].id;
+        const jobId = result[0].id;
 
-    return request({
-      method : 'GET',
-      url : `${instance}/v4/jobs/${jobId}/builds`,
-      context : {token : config.jwt}
+        return request({
+            method: 'GET',
+            url: `${instance}/v4/jobs/${jobId}/builds`,
+            context: { token: config.jwt }
+        });
     });
-  });
 }
 
 /**
@@ -103,25 +103,24 @@ function findBuilds(config) {
  * is found, an empty array is returned
  */
 function findEventBuilds(config) {
-  const {instance} = config;
-  const {eventId} = config;
+    const { instance } = config;
+    const { eventId } = config;
 
-  return request({
-           method : 'GET',
-           url : `${instance}/v4/events/${eventId}/builds`,
-           context : {token : config.jwt}
-         })
-      .then(response => {
+    return request({
+        method: 'GET',
+        url: `${instance}/v4/events/${eventId}/builds`,
+        context: { token: config.jwt }
+    }).then(response => {
         const builds = response.body || [];
         const job = config.jobs.find(j => j.name === config.jobName);
         const build = builds.find(b => b.jobId === job.id);
 
         if (build) {
-          return builds;
+            return builds;
         }
 
         return promiseToWait(WAIT_TIME).then(() => findEventBuilds(config));
-      });
+    });
 }
 
 /**
@@ -150,44 +149,43 @@ function findEventBuilds(config) {
  *     criteria
  */
 function searchForBuild(config) {
-  const {
-    instance,
-    pipelineId,
-    pullRequestNumber,
-    desiredSha,
-    desiredStatus,
-    jwt,
-    parentBuildId,
-    eventId
-  } = config;
-  const jobName = config.jobName || 'main';
+    const {
+        instance,
+        pipelineId,
+        pullRequestNumber,
+        desiredSha,
+        desiredStatus,
+        jwt,
+        parentBuildId,
+        eventId
+    } = config;
+    const jobName = config.jobName || 'main';
 
-  return findBuilds({instance, pipelineId, pullRequestNumber, jobName, jwt})
-      .then(buildData => {
+    return findBuilds({ instance, pipelineId, pullRequestNumber, jobName, jwt }).then(buildData => {
         let result = buildData.body || [];
 
         if (desiredSha) {
-          result = result.filter(item => item.sha === desiredSha);
+            result = result.filter(item => item.sha === desiredSha);
         }
 
         if (desiredStatus) {
-          result = result.filter(item => desiredStatus.includes(item.status));
+            result = result.filter(item => desiredStatus.includes(item.status));
         }
 
         if (parentBuildId) {
-          result = result.filter(item => item.parentBuildId === parentBuildId);
+            result = result.filter(item => item.parentBuildId === parentBuildId);
         }
 
         if (eventId) {
-          result = result.filter(item => item.eventId === eventId);
+            result = result.filter(item => item.eventId === eventId);
         }
 
         if (result.length > 0) {
-          return result[0];
+            return result[0];
         }
 
         return promiseToWait(WAIT_TIME).then(() => searchForBuild(config));
-      });
+    });
 }
 
 /**
@@ -212,44 +210,43 @@ function searchForBuild(config) {
  * @param  {String}  [config.eventId]           Event ID
  */
 function searchForBuilds(config) {
-  const {
-    instance,
-    pipelineId,
-    pullRequestNumber,
-    desiredSha,
-    desiredStatus,
-    jwt,
-    parentBuildId,
-    eventId
-  } = config;
-  const jobName = config.jobName || 'main';
+    const {
+        instance,
+        pipelineId,
+        pullRequestNumber,
+        desiredSha,
+        desiredStatus,
+        jwt,
+        parentBuildId,
+        eventId
+    } = config;
+    const jobName = config.jobName || 'main';
 
-  return findBuilds({instance, pipelineId, pullRequestNumber, jobName, jwt})
-      .then(buildData => {
+    return findBuilds({ instance, pipelineId, pullRequestNumber, jobName, jwt }).then(buildData => {
         let result = buildData.body || [];
 
         if (desiredSha) {
-          result = result.filter(item => item.sha === desiredSha);
+            result = result.filter(item => item.sha === desiredSha);
         }
 
         if (desiredStatus) {
-          result = result.filter(item => desiredStatus.includes(item.status));
+            result = result.filter(item => desiredStatus.includes(item.status));
         }
 
         if (parentBuildId) {
-          result = result.filter(item => item.parentBuildId === parentBuildId);
+            result = result.filter(item => item.parentBuildId === parentBuildId);
         }
 
         if (eventId) {
-          result = result.filter(item => item.eventId === eventId);
+            result = result.filter(item => item.eventId === eventId);
         }
 
         if (result.length > 0) {
-          return result;
+            return result;
         }
 
         return promiseToWait(WAIT_TIME).then(() => searchForBuilds(config));
-      });
+    });
 }
 
 /**
@@ -266,22 +263,21 @@ function searchForBuilds(config) {
  * @return {Object}                       Build data
  */
 function waitForBuildStatus(config) {
-  const {buildId, desiredStatus, instance} = config;
+    const { buildId, desiredStatus, instance } = config;
 
-  return request({
-           method : 'GET',
-           url : `${instance}/v4/builds/${buildId}`,
-           context : {token : config.jwt}
-         })
-      .then(response => {
+    return request({
+        method: 'GET',
+        url: `${instance}/v4/builds/${buildId}`,
+        context: { token: config.jwt }
+    }).then(response => {
         const buildData = response.body;
 
         if (desiredStatus.includes(buildData.status)) {
-          return buildData;
+            return buildData;
         }
 
         return promiseToWait(WAIT_TIME).then(() => waitForBuildStatus(config));
-      });
+    });
 }
 
 /**
@@ -299,26 +295,24 @@ function waitForBuildStatus(config) {
  * @return {Object}                       StageBuild data
  */
 function waitForStageBuildStatus(config) {
-  const {eventId, desiredStatus, instance, jwt, stageId} = config;
+    const { eventId, desiredStatus, instance, jwt, stageId } = config;
 
-  return request({
-           method : 'GET',
-           url : `${instance}/v4/events/${eventId}/stageBuilds`,
-           context : {token : jwt}
-         })
-      .then(response => {
+    return request({
+        method: 'GET',
+        url: `${instance}/v4/events/${eventId}/stageBuilds`,
+        context: { token: jwt }
+    }).then(response => {
         const stageBuildData = response.body;
 
         // Find stageBuild for stage
         const stageBuild = stageBuildData.find(sb => sb.stageId === stageId);
 
         if (stageBuild.status === desiredStatus) {
-          return stageBuild;
+            return stageBuild;
         }
 
-        return promiseToWait(WAIT_TIME).then(
-            () => waitForStageBuildStatus(config));
-      });
+        return promiseToWait(WAIT_TIME).then(() => waitForStageBuildStatus(config));
+    });
 }
 
 /**
@@ -332,28 +326,26 @@ function waitForStageBuildStatus(config) {
  * @return {Promise}
  */
 function cleanupToken(config) {
-  const tokenName = config.token;
-  const {instance} = config;
-  const {namespace} = config;
-  const {jwt} = config;
+    const tokenName = config.token;
+    const { instance } = config;
+    const { namespace } = config;
+    const { jwt } = config;
 
-  return request({
-           url : `${instance}/${namespace}/tokens`,
-           method : 'GET',
-           context : {token : jwt}
-         })
-      .then(response => {
+    return request({
+        url: `${instance}/${namespace}/tokens`,
+        method: 'GET',
+        context: { token: jwt }
+    }).then(response => {
         const match = response.body.find(token => token.name === tokenName);
 
-        if (!match)
-          return Promise.resolve();
+        if (!match) return Promise.resolve();
 
         return request({
-          url : `${instance}/${namespace}/tokens/${match.id}`,
-          method : 'DELETE',
-          context : {token : jwt}
+            url: `${instance}/${namespace}/tokens/${match.id}`,
+            method: 'DELETE',
+            context: { token: jwt }
         });
-      });
+    });
 }
 
 /**
@@ -367,23 +359,27 @@ function cleanupToken(config) {
  * @return {Promise}
  */
 function cleanupBuilds(config) {
-  const {instance} = config;
-  const {pipelineId} = config;
-  const {jwt} = config;
-  const {jobName} = config;
-  const desiredStatus = [ 'RUNNING', 'QUEUED', 'BLOCKED', 'UNSTABLE' ];
+    const { instance } = config;
+    const { pipelineId } = config;
+    const { jwt } = config;
+    const { jobName } = config;
+    const desiredStatus = ['RUNNING', 'QUEUED', 'BLOCKED', 'UNSTABLE'];
 
-  return findBuilds({instance, pipelineId, jobName, jwt}).then(buildData => {
-    const result = buildData.body || [];
-    const builds = result.filter(item => desiredStatus.includes(item.status));
+    return findBuilds({ instance, pipelineId, jobName, jwt }).then(buildData => {
+        const result = buildData.body || [];
+        const builds = result.filter(item => desiredStatus.includes(item.status));
 
-    return Promise.all(builds.map(build => request({
-                                    url : `${instance}/v4/builds/${build.id}`,
-                                    method : 'PUT',
-                                    context : {token : jwt},
-                                    json : {status : 'ABORTED'}
-                                  })));
-  });
+        return Promise.all(
+            builds.map(build =>
+                request({
+                    url: `${instance}/v4/builds/${build.id}`,
+                    method: 'PUT',
+                    context: { token: jwt },
+                    json: { status: 'ABORTED' }
+                })
+            )
+        );
+    });
 }
 
 /**
@@ -403,25 +399,25 @@ function cleanupBuilds(config) {
  * nothing is found, an empty array is returned
  */
 function findBuildStepLogs(config) {
-  const {instance, stepName, buildId, jwt} = config;
+    const { instance, stepName, buildId, jwt } = config;
 
-  return request({
-    method : 'GET',
-    url : `${instance}/v4/builds/${buildId}/steps/${stepName}/logs`,
-    context : {token : jwt}
-  });
+    return request({
+        method: 'GET',
+        url: `${instance}/v4/builds/${buildId}/steps/${stepName}/logs`,
+        context: { token: jwt }
+    });
 }
 
 module.exports = {
-  cleanupToken,
-  cleanupBuilds,
-  findBuilds,
-  findBuildStepLogs,
-  findJobs,
-  findEventBuilds,
-  searchForBuild,
-  searchForBuilds,
-  waitForBuildStatus,
-  waitForStageBuildStatus,
-  promiseToWait
+    cleanupToken,
+    cleanupBuilds,
+    findBuilds,
+    findBuildStepLogs,
+    findJobs,
+    findEventBuilds,
+    searchForBuild,
+    searchForBuilds,
+    waitForBuildStatus,
+    waitForStageBuildStatus,
+    promiseToWait
 };
